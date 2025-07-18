@@ -13,6 +13,9 @@ export default {
   name: 'HomeView',
   components: {
     HelloWorld
+  },
+  updated (){
+    console.log(this.$route.query.anio);
   }
 }
 </script>
