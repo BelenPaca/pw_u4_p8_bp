@@ -6,16 +6,20 @@ const URL_API = "http://localhost:8081/api/matricula/v1/estudiantes";
 //public Response guardar(@RequestBody EstudianteTo estudianteTo)
 
 const guardar = async (body) => {
-  const data = axios
-    .post(`${URL_API}`, body)
-    .then(r => r.data);
+  let token ='';
+
+  const data = axios.post(`${URL_API}`, body).then(r => r.data);
   console.log(data);
 };
 //Actualizar API
 //public Response actualizarPorId(@RequestBody EstudianteTo estudianteTo, @PathParam("id") Integer id)
 
 const actualizar = async (body,id) => {
-    axios.put(`http://localhost:8081/api/matricula/v1/estudiantes/${id}`, body)
+    axios.put(`${URL_API}/${id}`, body,{
+      
+    }
+
+    )
     .then(r => r.data);
 };
 
