@@ -1,5 +1,5 @@
 <template>
-  <div class="gestion-estudiantes">
+  <div class="container-estudiantes">
     <h1>Gestión de Estudiantes</h1>
 
     <div v-if="statusMessage" :class="['mensaje-estado', statusType]">
@@ -10,7 +10,7 @@
     <form @submit.prevent="guardarEstudiante" class="formulario-estudiante">
       <input type="hidden" v-model="estudianteActual.id" />
 
-      <div class="grupo-formulario">
+      <div class="container-formulario">
         <label for="nombre">Nombre:</label>
         <input type="text" id="nombre" v-model="estudianteActual.nombre" placeholder="Nombre del estudiante" required />
         <button
@@ -23,7 +23,7 @@
         </button>
       </div>
 
-      <div class="grupo-formulario">
+      <div class="container-formulario">
         <label for="apellido">Apellido:</label>
         <input type="text" id="apellido" v-model="estudianteActual.apellido" placeholder="Apellido del estudiante" required />
         <button
@@ -36,7 +36,7 @@
         </button>
       </div>
 
-      <div class="grupo-formulario">
+      <div class="container-formulario">
         <label for="fechaNacimiento">F. Nacimiento:</label>
         <input type="date" id="fechaNacimiento" v-model="estudianteActual.fechaNacimiento" required />
         <button
@@ -49,13 +49,12 @@
         </button>
       </div>
 
-      <div class="grupo-formulario">
+      <div class="container-formulario">
         <label for="genero">Género:</label>
         <select id="genero" v-model="estudianteActual.genero" required>
           <option value="">Seleccione</option>
           <option value="M">Masculino</option>
           <option value="F">Femenino</option>
-          <option value="O">Otro</option>
         </select>
         <button
           type="button"
@@ -80,19 +79,19 @@
     <hr />
 
     <h2>Consultar Estudiante por ID</h2>
-    <div class="grupo-formulario">
+    <div class="container-formulario">
       <label for="consultaId">ID a consultar:</label>
       <input type="number" id="consultaId" v-model.number="idAConsultar" placeholder="Ingrese ID" />
       <button @click="consultarEstudiantePorId" class="btn-buscar">Buscar</button>
     </div>
 
-    <div v-if="estudianteConsultado.id" class="estudiante-consultado-card">
+    <div v-if="estudianteConsultado.id" class="estudiante-consultado-id">
         <h3>Datos del Estudiante Consultado:</h3>
         <p><strong>ID:</strong> {{ estudianteConsultado.id }}</p>
         <p><strong>Nombre:</strong> {{ estudianteConsultado.nombre }} {{ estudianteConsultado.apellido }}</p>
         <p><strong>Fecha Nacimiento:</strong> {{ formatearFechaVisual(estudianteConsultado.fechaNacimiento) }}</p>
         <p><strong>Género:</strong> {{ estudianteConsultado.genero }}</p>
-        <div class="acciones-card">
+        <div class="acciones-id">
             <button @click="editarEstudiante(estudianteConsultado)" class="btn-editar">Editar en Formulario</button>
             <button @click="confirmarEliminacion(estudianteConsultado.id)" class="btn-eliminar">Eliminar</button>
         </div>
@@ -101,11 +100,11 @@
       Ingrese un ID y presione "Buscar" para ver los detalles.
     </p>
 
-    <div v-if="mostrarConfirmacionEliminar" class="superposicion-modal">
-      <div class="contenido-modal">
+    <div v-if="mostrarConfirmacionEliminar" class="supender">
+      <div class="contenido">
         <h3>Confirmar Eliminación</h3>
         <p>¿Estás seguro de que quieres eliminar al estudiante con ID: {{ idEstudianteAEliminar }}? Esta acción es irreversible.</p>
-        <div class="acciones-modal">
+        <div class="acciones">
           <button @click="eliminarEstudiante(idEstudianteAEliminar)" class="btn-eliminar">Sí, Eliminar</button>
           <button @click="cancelarEliminacion" class="btn-cancelar">Cancelar</button>
         </div>
@@ -121,30 +120,49 @@ import {
   actualizarParcialFachada,
   borrarPorIdFachada,
   consultarPorIdFachada
-} from "../clients/EstudianteClient.js"; 
+} from "../clients/EstudianteClient.js";
 
 export default {
   data() {
     return {
-      estudianteActual: { 
+      estudianteActual: {
         id: null,
         nombre: '',
         apellido: '',
-        fechaNacimiento: '', 
+        fechaNacimiento: '',
         genero: '',
       },
-      estudianteOriginal: {}, 
-      estudianteConsultado: {}, 
-      idAConsultar: null, 
+      estudianteOriginal: {},
+      estudianteConsultado: {},
+      idAConsultar: null,
       mostrarConfirmacionEliminar: false,
       idEstudianteAEliminar: null,
-      cargando: false, 
-      statusMessage: null, 
-      statusType: null, 
-      messageTimeout: null 
+      cargando: false,
+      statusMessage: null,
+      statusType: null,
+      messageTimeout: null
     };
   },
   methods: {
+    async ejecutarOperacion(operacionAsync, successMessage, errorMessage) {
+      this.cargando = true;
+      this.statusMessage = null;
+      this.statusType = null;
+
+      try {
+        const resultado = await operacionAsync();
+        this.showMessage(successMessage, 'success');
+        return resultado;
+      } catch (err) {
+        console.error(`Error en la operación:`, err);
+        const msg = err.response?.data?.message || err.message || errorMessage;
+        this.showMessage(msg, 'error');
+        throw err;
+      } finally {
+        this.cargando = false;
+      }
+    },
+
     showMessage(message, type = 'info', duration = 3000) {
       this.statusMessage = message;
       this.statusType = type;
@@ -160,37 +178,28 @@ export default {
     async consultarEstudiantePorId() {
       if (!this.idAConsultar) {
         this.showMessage('Por favor, ingrese un ID para consultar.', 'info');
-        this.estudianteConsultado = {}; 
+        this.estudianteConsultado = {};
         return;
       }
-      this.cargando = true;
-      this.statusMessage = null; 
-      this.estudianteConsultado = {}; 
 
       try {
-        const estudiante = await consultarPorIdFachada(this.idAConsultar);
-        if (estudiante) {
-          this.estudianteConsultado = estudiante;
-          this.showMessage(`Estudiante con ID ${this.idAConsultar} encontrado.`, 'success');
-        } else {
-          this.showMessage(`No se encontró estudiante con ID ${this.idAConsultar}.`, 'info');
-        }
+        const estudiante = await this.ejecutarOperacion(
+          () => consultarPorIdFachada(this.idAConsultar),
+          `Estudiante con ID ${this.idAConsultar} encontrado.`,
+          `No se encontró estudiante con ID ${this.idAConsultar}.`
+        );
+        this.estudianteConsultado = estudiante;
       } catch (err) {
-        console.error('Error al consultar estudiante por ID:', err);
         if (err.response && err.response.status === 404) {
           this.showMessage(`Estudiante con ID ${this.idAConsultar} no encontrado.`, 'error');
-        } else {
-          this.showMessage(`Error al consultar estudiante: ${err.message || 'Error desconocido'}`, 'error');
         }
-        this.estudianteConsultado = {}; 
-      } finally {
-        this.cargando = false;
+        this.estudianteConsultado = {};
       }
     },
 
     async guardarEstudiante() {
       if (!this.estudianteActual.nombre || !this.estudianteActual.apellido ||
-          !this.estudianteActual.fechaNacimiento || !this.estudianteActual.genero) {
+        !this.estudianteActual.fechaNacimiento || !this.estudianteActual.genero) {
         this.showMessage('Por favor, completa todos los campos del estudiante.', 'info');
         return;
       }
@@ -200,29 +209,28 @@ export default {
         datosAEnviar.fechaNacimiento = datosAEnviar.fechaNacimiento + 'T00:00:00';
       }
 
-      this.cargando = true;
-      this.statusMessage = null; 
-
       try {
         let resultadoOperacion;
         if (this.estudianteActual.id) {
-          resultadoOperacion = await actualizarFachada(datosAEnviar, this.estudianteActual.id);
-          this.showMessage('Estudiante actualizado completamente con éxito!', 'success');
+          resultadoOperacion = await this.ejecutarOperacion(
+            () => actualizarFachada(datosAEnviar, this.estudianteActual.id),
+            'Estudiante actualizado completamente con éxito!',
+            'Hubo un error al actualizar el estudiante.'
+          );
         } else {
-          resultadoOperacion = await guardarFachada(datosAEnviar);
-          this.showMessage('Estudiante agregado con éxito! Puedes consultarlo por su ID.', 'success');
+          resultadoOperacion = await this.ejecutarOperacion(
+            () => guardarFachada(datosAEnviar),
+            'Estudiante agregado con éxito! Puedes consultarlo por su ID.',
+            'Hubo un error al agregar el estudiante.'
+          );
         }
-        console.log('Resultado de la operación (guardar/actualizar):', resultadoOperacion); 
+        console.log('Resultado de la operación (guardar/actualizar):', resultadoOperacion);
 
         if (this.estudianteConsultado.id === resultadoOperacion.id) {
           this.estudianteConsultado = { ...resultadoOperacion };
         }
         this.limpiarFormulario();
       } catch (err) {
-        console.error('Error al guardar/actualizar estudiante:', err);
-        this.showMessage(`Hubo un error al guardar/actualizar el estudiante: ${err.response?.data?.message || err.message || 'Error desconocido'}`, 'error');
-      } finally {
-        this.cargando = false;
       }
     },
 
@@ -246,63 +254,53 @@ export default {
 
       const datosAActualizar = { [campo]: valorActualCampo };
 
-      this.cargando = true;
-      this.statusMessage = null;
-
       try {
-        const resultadoOperacion = await actualizarParcialFachada(datosAActualizar, this.estudianteActual.id);
-        this.showMessage(`Campo '${campo}' del estudiante actualizado parcialmente con éxito!`, 'success');
-        console.log('Resultado de actualización parcial:', resultadoOperacion); 
+        const resultadoOperacion = await this.ejecutarOperacion(
+          () => actualizarParcialFachada(datosAActualizar, this.estudianteActual.id),
+          `Campo '${campo}' del estudiante actualizado parcialmente con éxito!`,
+          `Hubo un error al actualizar el campo '${campo}'.`
+        );
+        console.log('Resultado de actualización parcial:', resultadoOperacion);
 
-        await this.editarEstudiante(this.estudianteActual); 
+        await this.editarEstudiante(this.estudianteActual);
 
         if (this.estudianteConsultado.id === resultadoOperacion.id) {
-            this.estudianteConsultado = { ...resultadoOperacion };
+          this.estudianteConsultado = { ...resultadoOperacion };
         }
-
       } catch (err) {
-        console.error(`Error al actualizar parcialmente el campo '${campo}':`, err);
-        this.showMessage(`Hubo un error al actualizar el campo '${campo}': ${err.response?.data?.message || err.message || 'Error desconocido'}`, 'error');
-      } finally {
-        this.cargando = false;
       }
     },
 
     async editarEstudiante(estudiante) {
-        if (!estudiante || !estudiante.id) {
-            this.showMessage('Error: Estudiante o ID no válidos para edición.', 'error');
-            return;
+      if (!estudiante || !estudiante.id) {
+        this.showMessage('Error: Estudiante o ID no válidos para edición.', 'error');
+        return;
+      }
+
+      try {
+        const estudianteRecuperado = await this.ejecutarOperacion(
+          () => consultarPorIdFachada(estudiante.id),
+          `Estudiante con ID ${estudiante.id} cargado en el formulario para edición.`,
+          `Error al cargar los detalles del estudiante ${estudiante.id} para edición.`
+        );
+
+        this.estudianteActual = { ...estudianteRecuperado };
+        this.estudianteOriginal = { ...estudianteRecuperado };
+
+        if (this.estudianteActual.fechaNacimiento) {
+          const fechaApi = this.estudianteActual.fechaNacimiento;
+          if (fechaApi.includes('T')) {
+            this.estudianteActual.fechaNacimiento = fechaApi.split('T')[0];
+          } else if (fechaApi.includes(' ')) {
+            this.estudianteActual.fechaNacimiento = fechaApi.split(' ')[0];
+          }
         }
-
-        this.cargando = true;
-        this.statusMessage = null;
-
-        try {
-            const estudianteRecuperado = await consultarPorIdFachada(estudiante.id);
-
-            this.estudianteActual = { ...estudianteRecuperado };
-            this.estudianteOriginal = { ...estudianteRecuperado };
-
-            if (this.estudianteActual.fechaNacimiento) {
-                const fechaApi = this.estudianteActual.fechaNacimiento;
-                if (fechaApi.includes('T')) {
-                    this.estudianteActual.fechaNacimiento = fechaApi.split('T')[0];
-                } else if (fechaApi.includes(' ')) { 
-                    this.estudianteActual.fechaNacimiento = fechaApi.split(' ')[0];
-                }
-            }
-            this.showMessage(`Estudiante con ID ${estudiante.id} cargado en el formulario para edición.`, 'info');
-        } catch (err) {
-            console.error(`Error al cargar los detalles del estudiante ${estudiante.id} para editar:`, err);
-            if (err.response && err.response.status === 404) {
-                this.showMessage(`Estudiante con ID ${estudiante.id} no encontrado para edición.`, 'error');
-            } else {
-                this.showMessage(`Error al cargar detalles para edición: ${err.response?.data?.message || err.message || 'Error desconocido'}`, 'error');
-            }
-            this.limpiarFormulario(); 
-        } finally {
-            this.cargando = false;
+      } catch (err) {
+        if (err.response && err.response.status === 404) {
+          this.showMessage(`Estudiante con ID ${estudiante.id} no encontrado para edición.`, 'error');
         }
+        this.limpiarFormulario();
+      }
     },
 
     confirmarEliminacion(id) {
@@ -311,22 +309,20 @@ export default {
     },
 
     async eliminarEstudiante(id) {
-      this.cargando = true;
-      this.statusMessage = null;
       try {
-        const resultadoOperacion = await borrarPorIdFachada(id);
-        this.showMessage('Estudiante eliminado con éxito!', 'success');
-        console.log('Resultado de eliminación:', resultadoOperacion); 
+        const resultadoOperacion = await this.ejecutarOperacion(
+          () => borrarPorIdFachada(id),
+          'Estudiante eliminado con éxito!',
+          'Hubo un error al eliminar el estudiante.'
+        );
+        console.log('Resultado de eliminación:', resultadoOperacion);
 
-        this.limpiarFormulario(); 
-        this.idAConsultar = null; 
-        this.estudianteConsultado = {}; 
+        this.limpiarFormulario();
+        this.idAConsultar = null;
+        this.estudianteConsultado = {};
       } catch (err) {
-        console.error('Error al eliminar estudiante:', err);
-        this.showMessage(`Hubo un error al eliminar el estudiante: ${err.response?.data?.message || err.message || 'Error desconocido'}`, 'error');
       } finally {
-        this.cancelarEliminacion(); 
-        this.cargando = false;
+        this.cancelarEliminacion();
       }
     },
 
@@ -343,7 +339,7 @@ export default {
         fechaNacimiento: '',
         genero: '',
       };
-      this.estudianteOriginal = {}; 
+      this.estudianteOriginal = {};
     },
 
     formatearFechaVisual(fechaString) {
@@ -366,7 +362,7 @@ export default {
 
 <style scoped>
 
-.gestion-estudiantes {
+.container-estudiantes {
   max-width: 800px;
   margin: 20px auto;
   padding: 20px;
@@ -380,33 +376,34 @@ h1, h2 {
   color: #333;
 }
 
-.formulario-estudiante, .grupo-formulario {
+.formulario-estudiante, .container-formulario {
   margin-bottom: 15px;
 }
 
-.grupo-formulario label {
+.container-formulario label {
   display: block;
   margin-bottom: 5px;
   font-weight: bold;
 }
 
-.grupo-formulario input,
-.grupo-formulario select {
-  width: calc(100% - 22px); 
+.container-formulario input,
+.container-formulario select {
+  width: calc(100% - 22px);
   padding: 10px;
   border: 1px solid #ddd;
   border-radius: 4px;
 }
 
-.acciones-formulario, .acciones-card, .acciones-modal {
+.acciones-formulario, .acciones-id, .acciones {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 10px;
   margin-top: 15px;
 }
 
 button {
   padding: 10px 15px;
+  margin-top: 10px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -418,11 +415,22 @@ button:hover {
   opacity: 0.9;
 }
 
-.btn-cancelar { background-color: #6c757d; }
-.btn-editar { background-color: #ffc107; color: #333; }
-.btn-eliminar { background-color: #dc3545; }
-.btn-parcial { background-color: #28a745; font-size: 0.9em; padding: 8px 12px; }
-.btn-buscar { background-color: #6f42c1; }
+.btn-cancelar {
+  background-color: #6c757d;
+}
+.btn-editar {
+  background-color: #ffc107; color: #333;
+}
+.btn-eliminar {
+  background-color: #dc3545;
+}
+.btn-parcial {
+  background-color: #28a745; font-size: 0.9em; padding: 8px 12px;
+}
+.btn-buscar {
+  margin-top: 15px;
+  background-color: #6f42c1;
+}
 
 .mensaje-estado {
   padding: 10px;
@@ -430,9 +438,19 @@ button:hover {
   border-radius: 4px;
   text-align: center;
 }
-.mensaje-estado.success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-.mensaje-estado.error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-.mensaje-estado.info { background-color: #cfe2ff; color: #052c65; border: 1px solid #b6d4fe; }
+.mensaje-estado.success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb; }
+.mensaje-estado.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb; }
+.mensaje-estado.info {
+  background-color: #cfe2ff;
+  color: #052c65;
+  border: 1px solid #b6d4fe; }
+
 
 .mensaje-carga, .mensaje-info {
   text-align: center;
@@ -444,7 +462,7 @@ button:hover {
   margin-top: 15px;
 }
 
-.estudiante-consultado-card {
+.estudiante-consultado-id {
   border: 1px solid #eee;
   padding: 15px;
   margin-top: 20px;
@@ -452,7 +470,7 @@ button:hover {
   border-radius: 4px;
 }
 
-.superposicion-modal {
+.superposicion {
   position: fixed;
   top: 0;
   left: 0;
@@ -464,7 +482,7 @@ button:hover {
   align-items: center;
 }
 
-.contenido-modal {
+.contenido {
   background-color: white;
   padding: 25px;
   border-radius: 8px;
